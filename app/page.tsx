@@ -205,6 +205,44 @@ export default function Home() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {/* Overview */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-2">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">このツールについて</h2>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            YouTubeチャンネルの動画を一括で取得し、<strong className="text-gray-900">公開日・再生回数・拡散率</strong>の3軸でフィルタリングできるツールです。
+          </p>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            チャンネル全体の再生回数の中央値をベースラインとして算出した「<strong className="text-gray-900">拡散率</strong>」を使えば、単純な再生回数の大小ではなく、<strong className="text-gray-900">そのチャンネルにとって異常に伸びた動画</strong>を見つけることができます。
+          </p>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            どんなテーマ・切り口・タイトルが視聴者に刺さったのかを把握でき、自分のチャンネル運営やコンテンツ企画に活かすことができます。
+          </p>
+        </div>
+
+        {/* How to use */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">使い方</h2>
+          <ol className="space-y-3">
+            {[
+              { n: 1, title: "APIキーを取得", desc: "Google Cloud Console で YouTube Data API v3 を有効にし、APIキーを発行します。" },
+              { n: 2, title: "チャンネルを入力", desc: "調べたいチャンネルのURL（例: https://www.youtube.com/@channelname）またはハンドル名を入力して「取得」を押します。" },
+              { n: 3, title: "フィルターで絞り込む", desc: "公開日・再生回数・拡散率のフィルターをチップで選択します。複数を組み合わせることも可能です。" },
+              { n: 4, title: "結果を確認", desc: "条件に一致した動画が一覧表示されます。列ヘッダーをクリックするとソートできます。タイトル右のアイコンからYouTubeで動画を開けます。" },
+            ].map(({ n, title, desc }) => (
+              <li key={n} className="flex gap-4">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center mt-0.5">{n}</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{title}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-700">
+            <strong>拡散率について：</strong> 取得した動画全体の再生回数の中央値をベースラインとし、各動画の再生回数がその何倍かを示します。チャンネル平均と比べて特に伸びた動画を見つけるのに使えます。
+          </div>
+        </div>
+
         {/* Input card */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">接続設定</h2>
