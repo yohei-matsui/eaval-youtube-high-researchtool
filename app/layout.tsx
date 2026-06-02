@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "YouTube チャンネル動画フィルター",
+  title: "YouTube チャンネル動画フィルター by 株式会社EAVAL",
   description: "YouTubeチャンネルの動画を取得し、公開日・再生回数・拡散率で絞り込めるツール。バイラル動画やトレンド動画を見つけるのに役立ちます。",
 };
 
