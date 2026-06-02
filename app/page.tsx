@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download } from "lucide-react";
 import { FilterVideoItem, ChannelFilterResponse } from "@/app/api/channel-filter/route";
 
 type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom";
@@ -74,6 +74,27 @@ function applyFilters(videos: FilterVideoItem[], filters: Filters): FilterVideoI
 
     return true;
   });
+}
+
+function exportCsv(videos: FilterVideoItem[], channelName: string) {
+  const header = ["#", "タイトル", "公開日", "再生回数", "拡散率", "URL"];
+  const rows = videos.map((v, i) => [
+    i + 1,
+    `"${v.title.replace(/"/g, '""')}"`,
+    fmtDate(v.publishedAt),
+    v.viewCount,
+    v.spreadRate.toFixed(2),
+    `https://www.youtube.com/watch?v=${v.id}`,
+  ]);
+  const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+  const bom = "﻿";
+  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${channelName}_filter_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function ChipGroup<T extends string>({
@@ -377,6 +398,17 @@ export default function Home() {
             {/* Results */}
             {filtered.length > 0 ? (
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <span className="text-sm text-gray-500">{filtered.length}件</span>
+                  <button
+                    type="button"
+                    onClick={() => exportCsv(filtered, data.channelName)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    CSVダウンロード
+                  </button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
