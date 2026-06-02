@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download, Key, Filter, BarChart2, ArrowRight } from "lucide-react";
 import { FilterVideoItem, ChannelFilterResponse } from "@/app/api/channel-filter/route";
 
 type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom";
@@ -222,7 +222,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
         <svg viewBox="0 0 24 24" className="h-6 w-6 fill-red-500"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-        <span className="text-lg font-bold text-gray-900">YouTube チャンネルフィルター</span>
+        <span className="text-lg font-bold text-gray-900">YouTube チャンネル動画フィルター</span>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -242,23 +242,33 @@ export default function Home() {
 
         {/* How to use */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">使い方</h2>
-          <ol className="space-y-3">
-            {[
-              { n: 1, title: "APIキーを取得", desc: "Google Cloud Console で YouTube Data API v3 を有効にし、APIキーを発行します。" },
-              { n: 2, title: "チャンネルを入力", desc: "調べたいチャンネルのURL（例: https://www.youtube.com/@channelname）またはハンドル名を入力して「取得」を押します。" },
-              { n: 3, title: "フィルターで絞り込む", desc: "公開日・再生回数・拡散率のフィルターをチップで選択します。複数を組み合わせることも可能です。" },
-              { n: 4, title: "結果を確認", desc: "条件に一致した動画が一覧表示されます。列ヘッダーをクリックするとソートできます。タイトル右のアイコンからYouTubeで動画を開けます。" },
-            ].map(({ n, title, desc }) => (
-              <li key={n} className="flex gap-4">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center mt-0.5">{n}</span>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{title}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{desc}</p>
+          <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-widest text-slate-400">使い方</p>
+          <div className="flex items-stretch gap-1.5">
+            {([
+              { step: "1", icon: <Key className="h-5 w-5" />,       label: "APIキーを\n取得",         desc: "Google Cloud Console で YouTube Data API v3 を有効化してキーを発行する" },
+              { step: "2", icon: <Search className="h-5 w-5" />,    label: "チャンネルを\n入力・取得", desc: "URLまたは@ハンドル名を入力して「取得」を押す。最大200本を自動取得" },
+              { step: "3", icon: <Filter className="h-5 w-5" />,    label: "フィルターで\n絞り込む",   desc: "公開日・再生回数・拡散率を組み合わせて条件に合う動画を抽出する" },
+              { step: "4", icon: <BarChart2 className="h-5 w-5" />, label: "結果を確認\n・活用する",   desc: "伸びた動画の傾向を把握し、コンテンツ企画やタイトル戦略に活かす" },
+            ] as const).map((item, i) => (
+              <div key={item.step} className="flex flex-1 items-start">
+                <div className="flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-2 py-4 text-center shadow-sm">
+                  <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white text-red-400 shadow-sm ring-1 ring-slate-100">
+                    {item.icon}
+                    <span className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                      {item.step}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-line text-[11px] font-bold leading-tight text-slate-800">{item.label}</p>
+                  <p className="text-[10px] leading-snug text-slate-500">{item.desc}</p>
                 </div>
-              </li>
+                {i < 3 && (
+                  <div className="shrink-0 px-0.5 pt-5 text-slate-300">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+                )}
+              </div>
             ))}
-          </ol>
+          </div>
           <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-700">
             <strong>拡散率について：</strong> 取得した動画全体の再生回数の中央値をベースラインとし、各動画の再生回数がその何倍かを示します。チャンネル平均と比べて特に伸びた動画を見つけるのに使えます。
           </div>
