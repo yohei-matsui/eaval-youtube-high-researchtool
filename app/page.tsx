@@ -223,7 +223,10 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
         <Image src="/eaval-logo.png" alt="EAVAL" width={32} height={32} className="flex-shrink-0" />
-        <span className="text-lg font-bold text-gray-900">YouTube チャンネル動画フィルター</span>
+        <div className="flex flex-col">
+          <span className="text-lg font-bold text-gray-900">YouTube チャンネル動画フィルター</span>
+          <span className="text-xs text-gray-400">by 株式会社EAVAL</span>
+        </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
