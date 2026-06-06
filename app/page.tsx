@@ -325,6 +325,89 @@ export default function Home() {
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
+        {/* Overview */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm text-center space-y-4">
+          <h1 className="text-xl font-bold text-gray-900 leading-relaxed">
+            YouTubeを<span className="text-red-500">高精度</span>に検索し、リサーチを効率化するツールです
+          </h1>
+          <p className="text-sm text-gray-600 leading-relaxed max-w-2xl mx-auto">
+            キーワード・公開地域・公開日・動画時間・再生回数・拡散率を組み合わせて絞り込み。<br />
+            各チャンネルの実力を基準にした「<strong className="text-gray-800">拡散率</strong>」で、そのチャンネルの中で異常に伸びた動画を発見できます。<br />
+            韓国・アメリカのトレンドも、キーワードを自動翻訳して即検索。
+          </p>
+
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 pt-2">使い方</p>
+
+          <div className="flex items-stretch gap-1.5 pt-1">
+            {([
+              {
+                step: "1",
+                icon: (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0 1 21.75 8.25Z" />
+                  </svg>
+                ),
+                label: "APIキーを\n取得",
+                desc: "Google Cloud ConsoleでYouTube Data API v3を有効化してキーを発行する",
+              },
+              {
+                step: "2",
+                icon: (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                ),
+                label: "検索条件を\n設定",
+                desc: "キーワード・地域・公開日・動画時間・再生回数・拡散率を設定して検索",
+              },
+              {
+                step: "3",
+                icon: (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0-3.75-3.75M17.25 21 21 17.25" />
+                  </svg>
+                ),
+                label: "結果を\n絞り込む",
+                desc: "取得した動画を再生回数・拡散率でさらに絞り込み。チャンネル別ベースラインで公平に比較",
+              },
+              {
+                step: "4",
+                icon: (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                  </svg>
+                ),
+                label: "リサーチに\n活かす",
+                desc: "伸びた動画のテーマ・タイトルを把握し、コンテンツ企画や競合分析に役立てる",
+              },
+            ] as const).map((item, i) => (
+              <div key={item.step} className="flex flex-1 items-start">
+                <div className="flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50 px-2 py-4 text-center">
+                  <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white text-red-400 shadow-sm ring-1 ring-gray-100">
+                    {item.icon}
+                    <span className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                      {item.step}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-line text-[11px] font-bold leading-tight text-gray-800">{item.label}</p>
+                  <p className="text-[10px] leading-snug text-gray-500">{item.desc}</p>
+                </div>
+                {i < 3 && (
+                  <div className="shrink-0 px-0.5 pt-5 text-gray-300">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-700 text-left mt-2">
+            <strong>拡散率について：</strong> 各チャンネルの最新50本の再生回数の中央値をベースラインとし、その動画が何倍の再生数を得ているかを示します。チャンネルの規模に関係なく「本当に伸びた動画」を見つけるのに使えます。
+          </div>
+        </div>
+
         {/* API Key */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">API設定</h2>
