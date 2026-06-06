@@ -2,22 +2,24 @@
 
 import Image from "next/image";
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download, Key, Filter, BarChart2, ArrowRight } from "lucide-react";
-import { FilterVideoItem, ChannelFilterResponse } from "@/app/api/channel-filter/route";
+import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { SearchVideoItem, SearchResponse } from "@/app/api/search/route";
 
-type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom";
-type ViewFilter = "1000" | "10000" | "50000" | "100000" | "custom";
-type SpreadFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom";
+type MatchType = "partial" | "exact";
+type Region = "japan" | "korea" | "usa";
+type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom" | "";
+type ViewFilter = "1000" | "10000" | "50000" | "100000" | "custom" | "";
+type SpreadFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom" | "";
+type DurationFilter = "short" | "medium" | "long" | "";
 type SortKey = "publishedAt" | "viewCount" | "spreadRate";
 type SortDir = "asc" | "desc";
 
-interface Filters {
-  dateRange: DateRange | "";
-  dateCustomDays: string;
-  viewMin: ViewFilter | "";
+interface ClientFilters {
+  viewMin: ViewFilter;
   viewCustom: string;
-  spreadMin: SpreadFilter | "";
+  spreadMin: SpreadFilter;
   spreadCustom: string;
+  duration: DurationFilter;
 }
 
 function fmt(n: number): string {
@@ -32,23 +34,17 @@ function fmtDate(iso: string): string {
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function fmtSubs(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}万人`;
-  return `${n.toLocaleString()}人`;
-}
-
-function applyFilters(videos: FilterVideoItem[], filters: Filters): FilterVideoItem[] {
-  const now = Date.now();
+function applyClientFilters(
+  videos: SearchVideoItem[],
+  query: string,
+  matchType: MatchType,
+  filters: ClientFilters
+): SearchVideoItem[] {
+  const q = query.trim().toLowerCase();
   return videos.filter((v) => {
-    if (filters.dateRange) {
-      let days: number | null = null;
-      if (filters.dateRange === "custom") {
-        const p = parseInt(filters.dateCustomDays);
-        if (!isNaN(p) && p > 0) days = p;
-      } else {
-        days = parseInt(filters.dateRange);
-      }
-      if (days !== null && new Date(v.publishedAt).getTime() < now - days * 86400000) return false;
+    if (q) {
+      const title = v.title.toLowerCase();
+      if (matchType === "exact" && !title.includes(q)) return false;
     }
 
     if (filters.viewMin) {
@@ -73,27 +69,35 @@ function applyFilters(videos: FilterVideoItem[], filters: Filters): FilterVideoI
       if (minRate !== null && v.spreadRate < minRate) return false;
     }
 
+    if (filters.duration) {
+      const sec = v.durationSeconds;
+      if (filters.duration === "short" && sec >= 180) return false;
+      if (filters.duration === "medium" && (sec < 180 || sec >= 1200)) return false;
+      if (filters.duration === "long" && sec < 1200) return false;
+    }
+
     return true;
   });
 }
 
-function exportCsv(videos: FilterVideoItem[], channelName: string) {
-  const header = ["#", "タイトル", "公開日", "再生回数", "拡散率", "URL"];
+function exportCsv(videos: SearchVideoItem[], query: string) {
+  const header = ["#", "タイトル", "チャンネル", "公開日", "再生回数", "CH中央値", "拡散率", "URL"];
   const rows = videos.map((v, i) => [
     i + 1,
     `"${v.title.replace(/"/g, '""')}"`,
+    `"${v.channelName.replace(/"/g, '""')}"`,
     fmtDate(v.publishedAt),
     v.viewCount,
+    Math.round(v.channelBaseline),
     v.spreadRate.toFixed(2),
     `https://www.youtube.com/watch?v=${v.id}`,
   ]);
   const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
-  const bom = "﻿";
-  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${channelName}_filter_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `youtube_search_${query}_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -104,8 +108,8 @@ function ChipGroup<T extends string>({
   onChange,
 }: {
   options: { label: string; value: T }[];
-  value: T | "";
-  onChange: (v: T | "") => void;
+  value: T;
+  onChange: (v: T) => void;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -113,7 +117,7 @@ function ChipGroup<T extends string>({
         <button
           key={o.value}
           type="button"
-          onClick={() => onChange(value === o.value ? "" : o.value)}
+          onClick={() => onChange(value === o.value ? ("" as T) : o.value)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
             value === o.value
               ? "bg-red-500 text-white shadow-sm"
@@ -144,144 +148,186 @@ function SortHeader({
   );
 }
 
+const regionOptions: { label: string; value: Region; code: string }[] = [
+  { label: "🇯🇵 日本", value: "japan", code: "JP" },
+  { label: "🇰🇷 韓国", value: "korea", code: "KR" },
+  { label: "🇺🇸 アメリカ", value: "usa", code: "US" },
+];
+
+const dateOptions: { label: string; value: DateRange }[] = [
+  { label: "直近7日", value: "7" },
+  { label: "直近28日", value: "28" },
+  { label: "直近90日", value: "90" },
+  { label: "直近1年", value: "365" },
+  { label: "直近2年", value: "730" },
+  { label: "直近3年", value: "1095" },
+  { label: "カスタム", value: "custom" },
+];
+
+const viewOptions: { label: string; value: ViewFilter }[] = [
+  { label: "1,000回以上", value: "1000" },
+  { label: "1万回以上", value: "10000" },
+  { label: "5万回以上", value: "50000" },
+  { label: "10万回以上", value: "100000" },
+  { label: "カスタム", value: "custom" },
+];
+
+const durationOptions: { label: string; value: DurationFilter }[] = [
+  { label: "3分未満", value: "short" },
+  { label: "3〜20分", value: "medium" },
+  { label: "20分以上", value: "long" },
+];
+
+const spreadOptions: { label: string; value: SpreadFilter }[] = [
+  { label: "1.0x以上", value: "1.0" },
+  { label: "1.5x以上", value: "1.5" },
+  { label: "2.0x以上", value: "2.0" },
+  { label: "3.0x以上", value: "3.0" },
+  { label: "5.0x以上", value: "5.0" },
+  { label: "カスタム", value: "custom" },
+];
+
+async function translateText(text: string, targetLang: string): Promise<string> {
+  if (!text.trim()) return text;
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|${targetLang}`
+    );
+    const data = await res.json();
+    return data.responseData?.translatedText ?? text;
+  } catch {
+    return text;
+  }
+}
+
 export default function Home() {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-  const [channelInput, setChannelInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<ChannelFilterResponse | null>(null);
 
-  const [filters, setFilters] = useState<Filters>({
-    dateRange: "", dateCustomDays: "",
-    viewMin: "", viewCustom: "",
-    spreadMin: "", spreadCustom: "",
+  // Search params (trigger API call)
+  const [queryInput, setQueryInput] = useState("");
+  const [originalQuery, setOriginalQuery] = useState("");
+  const [translating, setTranslating] = useState(false);
+  const [matchType, setMatchType] = useState<MatchType>("partial");
+  const [region, setRegion] = useState<Region>("japan");
+  const [dateRange, setDateRange] = useState<DateRange>("");
+  const [dateCustomDays, setDateCustomDays] = useState("");
+
+  // Client-side filters
+  const [clientFilters, setClientFilters] = useState<ClientFilters>({
+    viewMin: "",
+    viewCustom: "",
+    spreadMin: "",
+    spreadCustom: "",
+    duration: "",
   });
 
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "publishedAt", dir: "desc" });
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<SearchResponse | null>(null);
+  const [searchedQuery, setSearchedQuery] = useState("");
 
-  const updateFilter = useCallback(<K extends keyof Filters>(key: K, val: Filters[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: val }));
+  const updateFilter = useCallback(<K extends keyof ClientFilters>(key: K, val: ClientFilters[K]) => {
+    setClientFilters((prev) => ({ ...prev, [key]: val }));
+    setPage(1);
   }, []);
+
+  const handleRegionChange = useCallback(async (newRegion: Region) => {
+    setRegion(newRegion);
+    if (!queryInput.trim()) return;
+
+    const targetLang = newRegion === "korea" ? "ko" : newRegion === "usa" ? "en" : "ja";
+
+    if (newRegion === "japan") {
+      // 日本に戻したら元のクエリを復元
+      if (originalQuery) setQueryInput(originalQuery);
+      return;
+    }
+
+    // 初回翻訳前に元のクエリを保存
+    if (region === "japan") setOriginalQuery(queryInput);
+
+    setTranslating(true);
+    const translated = await translateText(
+      region === "japan" ? queryInput : (originalQuery || queryInput),
+      targetLang
+    );
+    setQueryInput(translated);
+    setTranslating(false);
+  }, [queryInput, originalQuery, region]);
 
   const handleSort = useCallback((key: SortKey) => {
     setSort((prev) => ({ key, dir: prev.key === key && prev.dir === "desc" ? "asc" : "desc" }));
   }, []);
 
-  const handleFetch = useCallback(async () => {
-    if (!apiKey.trim() || !channelInput.trim()) return;
+  const getPublishedAfterDays = (): string | null => {
+    if (!dateRange) return null;
+    if (dateRange === "custom") {
+      const p = parseInt(dateCustomDays);
+      return !isNaN(p) && p > 0 ? String(p) : null;
+    }
+    return dateRange;
+  };
+
+  const handleSearch = useCallback(async () => {
+    if (!apiKey.trim() || !queryInput.trim()) return;
     setLoading(true);
     setError(null);
     setData(null);
+    const publishedAfterDays = getPublishedAfterDays();
     try {
-      const res = await fetch("/api/channel-filter", {
+      const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-youtube-api-key": apiKey.trim() },
-        body: JSON.stringify({ channelInput: channelInput.trim() }),
+        body: JSON.stringify({ query: queryInput.trim(), region, publishedAfterDays }),
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error ?? "エラーが発生しました"); return; }
-      setData(json as ChannelFilterResponse);
+      setData(json as SearchResponse);
+      setSearchedQuery(queryInput.trim());
+      setPage(1);
     } catch {
       setError("通信エラーが発生しました");
     } finally {
       setLoading(false);
     }
-  }, [apiKey, channelInput]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey, queryInput, region, dateRange, dateCustomDays]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
-    return [...applyFilters(data.videos, filters)].sort((a, b) => {
+    return [...applyClientFilters(data.videos, searchedQuery, matchType, clientFilters)].sort((a, b) => {
       let diff = 0;
       if (sort.key === "publishedAt") diff = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
       else if (sort.key === "viewCount") diff = a.viewCount - b.viewCount;
       else diff = a.spreadRate - b.spreadRate;
       return sort.dir === "desc" ? -diff : diff;
     });
-  }, [data, filters, sort]);
+  }, [data, searchedQuery, matchType, clientFilters, sort]);
 
-  const dateOptions: { label: string; value: DateRange }[] = [
-    { label: "直近7日", value: "7" }, { label: "直近28日", value: "28" },
-    { label: "直近90日", value: "90" }, { label: "直近1年", value: "365" },
-    { label: "直近2年", value: "730" }, { label: "直近3年", value: "1095" },
-    { label: "カスタム", value: "custom" },
-  ];
+  const paged = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
+  const hasMore = paged.length < filtered.length;
 
-  const viewOptions: { label: string; value: ViewFilter }[] = [
-    { label: "1,000回以上", value: "1000" }, { label: "1万回以上", value: "10000" },
-    { label: "5万回以上", value: "50000" }, { label: "10万回以上", value: "100000" },
-    { label: "カスタム", value: "custom" },
-  ];
-
-  const spreadOptions: { label: string; value: SpreadFilter }[] = [
-    { label: "1.0x以上", value: "1.0" }, { label: "1.5x以上", value: "1.5" },
-    { label: "2.0x以上", value: "2.0" }, { label: "3.0x以上", value: "3.0" },
-    { label: "5.0x以上", value: "5.0" }, { label: "カスタム", value: "custom" },
-  ];
+  const canSearch = apiKey.trim() && queryInput.trim() && !loading;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
         <Image src="/eaval-logo.png" alt="EAVAL" width={32} height={32} className="flex-shrink-0" />
         <div className="flex flex-col">
-          <span className="text-lg font-bold text-gray-900">YouTube チャンネル動画フィルター</span>
+          <span className="text-lg font-bold text-gray-900">YouTube 高精度検索ツール</span>
           <span className="text-xs text-gray-400">by 株式会社EAVAL</span>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Overview */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-2">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">このツールについて</h2>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            YouTubeチャンネルの動画を一括で取得し、<strong className="text-gray-900">公開日・再生回数・拡散率</strong>の3軸でフィルタリングできるツールです。
-          </p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            チャンネル全体の再生回数の中央値をベースラインとして算出した「<strong className="text-gray-900">拡散率</strong>」を使えば、単純な再生回数の大小ではなく、<strong className="text-gray-900">そのチャンネルにとって異常に伸びた動画</strong>を見つけることができます。
-          </p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            どんなテーマ・切り口・タイトルが視聴者に刺さったのかを把握でき、自分のチャンネル運営やコンテンツ企画に活かすことができます。
-          </p>
-        </div>
 
-        {/* How to use */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <p className="mb-5 text-center text-[11px] font-semibold uppercase tracking-widest text-slate-400">使い方</p>
-          <div className="flex items-stretch gap-1.5">
-            {([
-              { step: "1", icon: <Key className="h-5 w-5" />,       label: "APIキーを\n取得",         desc: "Google Cloud Console で YouTube Data API v3 を有効化してキーを発行する" },
-              { step: "2", icon: <Search className="h-5 w-5" />,    label: "チャンネルを\n入力・取得", desc: "URLまたは@ハンドル名を入力して「取得」を押す。最大200本を自動取得" },
-              { step: "3", icon: <Filter className="h-5 w-5" />,    label: "フィルターで\n絞り込む",   desc: "公開日・再生回数・拡散率を組み合わせて条件に合う動画を抽出する" },
-              { step: "4", icon: <BarChart2 className="h-5 w-5" />, label: "結果を確認\n・活用する",   desc: "伸びた動画の傾向を把握し、コンテンツ企画やタイトル戦略に活かす" },
-            ] as const).map((item, i) => (
-              <div key={item.step} className="flex flex-1 items-start">
-                <div className="flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-2 py-4 text-center shadow-sm">
-                  <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white text-red-400 shadow-sm ring-1 ring-slate-100">
-                    {item.icon}
-                    <span className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
-                      {item.step}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-line text-[11px] font-bold leading-tight text-slate-800">{item.label}</p>
-                  <p className="text-[10px] leading-snug text-slate-500">{item.desc}</p>
-                </div>
-                {i < 3 && (
-                  <div className="shrink-0 px-0.5 pt-5 text-slate-300">
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-700">
-            <strong>拡散率について：</strong> 取得した動画全体の再生回数の中央値をベースラインとし、各動画の再生回数がその何倍かを示します。チャンネル平均と比べて特に伸びた動画を見つけるのに使えます。
-          </div>
-        </div>
-
-        {/* Input card */}
+        {/* API Key */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">接続設定</h2>
-
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">API設定</h2>
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">YouTube Data API キー</label>
             <div className="relative">
@@ -297,35 +343,158 @@ export default function Home() {
               </button>
             </div>
             <p className="text-xs text-gray-400">
-              APIキーは
-              <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline ml-1">Google Cloud Console</a>
-              で取得できます
+              <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a> で YouTube Data API v3 を有効にして取得
             </p>
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-700">チャンネルURL / ハンドル名</label>
+        {/* Search card */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">検索条件</h2>
+
+          {/* Query + match type */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">検索キーワード</label>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={channelInput}
-                onChange={(e) => setChannelInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-                placeholder="https://www.youtube.com/@channelname  または  @channelname"
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canSearch && handleSearch()}
+                placeholder="例: ダイエット 筋トレ"
                 className="flex-1 rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition"
               />
-              <button
-                type="button"
-                onClick={handleFetch}
-                disabled={loading || !apiKey.trim() || !channelInput.trim()}
-                className="flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <Search className="h-4 w-4" />
-                {loading ? "取得中…" : "取得"}
-              </button>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium">
+                <button
+                  type="button"
+                  onClick={() => setMatchType("partial")}
+                  className={`px-3 py-2.5 transition-colors ${matchType === "partial" ? "bg-red-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  部分一致
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMatchType("exact")}
+                  className={`px-3 py-2.5 transition-colors ${matchType === "exact" ? "bg-red-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  完全一致
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-gray-400">最大200本の動画を取得します（ショート動画 ≤3分 は除外）</p>
+            {matchType === "exact" && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                完全一致：取得した動画のタイトルにキーワードが含まれるものだけ表示します
+              </p>
+            )}
           </div>
+
+          {/* Region */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              公開地域
+              {translating && (
+                <span className="ml-2 text-xs font-normal text-blue-500 animate-pulse">キーワードを翻訳中…</span>
+              )}
+            </label>
+            <div className="flex gap-2">
+              {regionOptions.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => handleRegionChange(r.value)}
+                  disabled={translating}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-60 ${
+                    region === r.value
+                      ? "bg-red-500 text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date range */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">公開日</label>
+            <ChipGroup options={dateOptions} value={dateRange} onChange={(v) => setDateRange(v as DateRange)} />
+            {dateRange === "custom" && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min={1}
+                  value={dateCustomDays}
+                  onChange={(e) => setDateCustomDays(e.target.value)}
+                  placeholder="日数"
+                  className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                />
+                <span className="text-sm text-gray-500">日以内</span>
+              </div>
+            )}
+          </div>
+
+          {/* Duration */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">動画時間</label>
+            <ChipGroup options={durationOptions} value={clientFilters.duration} onChange={(v) => updateFilter("duration", v as DurationFilter)} />
+          </div>
+
+          {/* View count */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">再生回数</label>
+            <ChipGroup options={viewOptions} value={clientFilters.viewMin} onChange={(v) => updateFilter("viewMin", v as ViewFilter)} />
+            {clientFilters.viewMin === "custom" && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={clientFilters.viewCustom}
+                  onChange={(e) => updateFilter("viewCustom", e.target.value)}
+                  placeholder="例: 30000"
+                  className="w-40 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                />
+                <span className="text-sm text-gray-500">回以上</span>
+              </div>
+            )}
+          </div>
+
+          {/* Spread rate */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              拡散率
+              {data && (
+                <span className="ml-2 text-xs font-normal text-gray-400">
+                  各チャンネルの最新50本の中央値に対する倍率
+                </span>
+              )}
+            </label>
+            <ChipGroup options={spreadOptions} value={clientFilters.spreadMin} onChange={(v) => updateFilter("spreadMin", v as SpreadFilter)} />
+            {clientFilters.spreadMin === "custom" && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={clientFilters.spreadCustom}
+                  onChange={(e) => updateFilter("spreadCustom", e.target.value)}
+                  placeholder="例: 2.5"
+                  className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                />
+                <span className="text-sm text-gray-500">x以上</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={!canSearch}
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Search className="h-4 w-4" />
+            {loading ? "検索中…" : "検索"}
+          </button>
         </div>
 
         {error && (
@@ -338,85 +507,28 @@ export default function Home() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
-            <span className="text-sm">動画データを取得中（最大200本）…</span>
+            <span className="text-sm">検索結果を取得中（最大200件）…</span>
           </div>
         )}
 
         {data && (
           <>
-            {/* Channel info */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-4 shadow-sm">
-              {data.channelThumbnail && (
-                <img src={data.channelThumbnail} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-gray-100" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{data.channelName}</p>
-                <p className="text-sm text-gray-500 flex gap-3 flex-wrap">
-                  <span>登録者 {fmtSubs(data.subscriberCount)}</span>
-                  <span>取得動画 {data.totalFetched}本</span>
-                  <span>ベースライン（中央値） <strong className="text-gray-700">{fmt(Math.round(data.baseline))}回</strong></span>
-                </p>
-              </div>
-            </div>
-
-            {/* Filters */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6 shadow-sm">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">フィルター</h2>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">公開日</p>
-                <ChipGroup options={dateOptions} value={filters.dateRange} onChange={(v) => updateFilter("dateRange", v as DateRange | "")} />
-                {filters.dateRange === "custom" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <input type="number" min={1} value={filters.dateCustomDays} onChange={(e) => updateFilter("dateCustomDays", e.target.value)}
-                      placeholder="日数" className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100" />
-                    <span className="text-sm text-gray-500">日以内</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">再生回数</p>
-                <ChipGroup options={viewOptions} value={filters.viewMin} onChange={(v) => updateFilter("viewMin", v as ViewFilter | "")} />
-                {filters.viewMin === "custom" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <input type="number" min={0} value={filters.viewCustom} onChange={(e) => updateFilter("viewCustom", e.target.value)}
-                      placeholder="例: 30000" className="w-40 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100" />
-                    <span className="text-sm text-gray-500">回以上</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">
-                  拡散率
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    ベースライン {fmt(Math.round(data.baseline))}回 に対する倍率
-                  </span>
-                </p>
-                <ChipGroup options={spreadOptions} value={filters.spreadMin} onChange={(v) => updateFilter("spreadMin", v as SpreadFilter | "")} />
-                {filters.spreadMin === "custom" && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <input type="number" min={0} step={0.1} value={filters.spreadCustom} onChange={(e) => updateFilter("spreadCustom", e.target.value)}
-                      placeholder="例: 2.5" className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100" />
-                    <span className="text-sm text-gray-500">x以上</span>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-xs text-gray-400 pt-1">
-                表示: <span className="font-semibold text-gray-600">{filtered.length}本</span> / {data.totalFetched}本
-              </p>
+            {/* Summary */}
+            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex flex-wrap items-center gap-4 shadow-sm text-sm text-gray-600">
+              <span>検索: <strong className="text-gray-900">「{data.query}」</strong></span>
+              <span>地域: <strong className="text-gray-900">{regionOptions.find(r => r.code === data.region)?.label ?? data.region}</strong></span>
+              <span>取得: <strong className="text-gray-900">{data.totalFetched}件</strong></span>
+              <span className="text-xs text-gray-400">拡散率 = 各チャンネルの最新50本の中央値を基準</span>
             </div>
 
             {/* Results */}
             {filtered.length > 0 ? (
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">{filtered.length}件</span>
+                  <span className="text-sm text-gray-500">{paged.length} / {filtered.length}件</span>
                   <button
                     type="button"
-                    onClick={() => exportCsv(filtered, data.channelName)}
+                    onClick={() => exportCsv(filtered, searchedQuery)}
                     className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -429,12 +541,14 @@ export default function Home() {
                       <tr className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500">
                         <th className="px-4 py-3 text-left w-10">#</th>
                         <th className="px-4 py-3 text-left">動画</th>
+                        <th className="px-4 py-3 text-left whitespace-nowrap">チャンネル</th>
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="公開日" sortKey="publishedAt" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="再生回数" sortKey="viewCount" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap text-gray-400">CH中央値</th>
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="拡散率" sortKey="spreadRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
@@ -442,7 +556,7 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {filtered.map((v, i) => (
+                      {paged.map((v, i) => (
                         <tr key={v.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3">
@@ -451,8 +565,19 @@ export default function Home() {
                               <span className="text-gray-800 line-clamp-2 leading-snug">{v.title}</span>
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap max-w-[120px] truncate">
+                            <a
+                              href={`https://www.youtube.com/channel/${v.channelId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-red-500 transition-colors"
+                            >
+                              {v.channelName}
+                            </a>
+                          </td>
                           <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">{fmtDate(v.publishedAt)}</td>
                           <td className="px-4 py-3 text-right font-medium text-gray-800 whitespace-nowrap">{fmt(v.viewCount)}</td>
+                          <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">{fmt(Math.round(v.channelBaseline))}</td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                               v.spreadRate >= 3 ? "bg-red-100 text-red-700"
@@ -464,8 +589,12 @@ export default function Home() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer"
-                              className="text-gray-400 hover:text-red-500 transition-colors">
+                            <a
+                              href={`https://www.youtube.com/watch?v=${v.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </td>
@@ -474,6 +603,18 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+                {hasMore && (
+                  <div className="px-4 py-4 border-t border-gray-100 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => p + 1)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      次の10件を見る
+                      <span className="text-xs text-gray-400">（残り {filtered.length - paged.length}件）</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center text-gray-400 text-sm shadow-sm">

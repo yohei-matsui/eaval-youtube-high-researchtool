@@ -1,33 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "YouTube チャンネル動画フィルター by 株式会社EAVAL",
-  description: "YouTubeチャンネルの動画を取得し、公開日・再生回数・拡散率で絞り込めるツール。バイラル動画やトレンド動画を見つけるのに役立ちます。",
+  title: "YouTube 高精度検索ツール | EAVAL",
+  description: "YouTubeをキーワード・地域・公開日・再生回数・拡散率で高精度に絞り込む",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="ja"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="ja">
+      <body>{children}</body>
     </html>
   );
 }
