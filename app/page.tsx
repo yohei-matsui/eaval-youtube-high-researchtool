@@ -426,7 +426,7 @@ export default function Home() {
               </button>
             </div>
             <p className="text-xs text-gray-400">
-              <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a> で YouTube Data API v3 を有効にして取得
+              <a href="https://note.com/yuki_tech/n/na82ad826df1f" target="_blank" rel="noopener noreferrer" className="underline">YouTube Data API v3の取得方法はこちら（参考サイト）</a>
             </p>
           </div>
         </div>
