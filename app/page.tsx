@@ -10,7 +10,7 @@ type Region = "japan" | "korea" | "usa";
 type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom" | "";
 type ViewFilter = "1000" | "10000" | "50000" | "100000" | "custom" | "";
 type SpreadFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom" | "";
-type DurationFilter = "short" | "medium" | "long" | "";
+type DurationValue = "short" | "medium" | "long";
 type SortKey = "publishedAt" | "viewCount" | "spreadRate";
 type SortDir = "asc" | "desc";
 
@@ -19,7 +19,7 @@ interface ClientFilters {
   viewCustom: string;
   spreadMin: SpreadFilter;
   spreadCustom: string;
-  duration: DurationFilter;
+  durations: DurationValue[];
 }
 
 function fmt(n: number): string {
@@ -69,11 +69,15 @@ function applyClientFilters(
       if (minRate !== null && v.spreadRate < minRate) return false;
     }
 
-    if (filters.duration) {
+    if (filters.durations.length > 0) {
       const sec = v.durationSeconds;
-      if (filters.duration === "short" && sec >= 180) return false;
-      if (filters.duration === "medium" && (sec < 180 || sec >= 1200)) return false;
-      if (filters.duration === "long" && sec < 1200) return false;
+      const match = filters.durations.some((d) => {
+        if (d === "short") return sec < 180;
+        if (d === "medium") return sec >= 180 && sec < 1200;
+        if (d === "long") return sec >= 1200;
+        return false;
+      });
+      if (!match) return false;
     }
 
     return true;
@@ -219,7 +223,7 @@ export default function Home() {
     viewCustom: "",
     spreadMin: "",
     spreadCustom: "",
-    duration: "",
+    durations: [],
   });
 
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
@@ -517,10 +521,38 @@ export default function Home() {
             )}
           </div>
 
-          {/* Duration */}
+          {/* Duration - 複数選択 */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">動画時間</label>
-            <ChipGroup options={durationOptions} value={clientFilters.duration} onChange={(v) => updateFilter("duration", v as DurationFilter)} />
+            <label className="text-sm font-medium text-gray-700">動画時間
+              <span className="ml-2 text-xs font-normal text-gray-400">複数選択可</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {durationOptions.map((o) => {
+                const selected = clientFilters.durations.includes(o.value as DurationValue);
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => {
+                      const v = o.value as DurationValue;
+                      updateFilter(
+                        "durations",
+                        selected
+                          ? clientFilters.durations.filter((d) => d !== v)
+                          : [...clientFilters.durations, v]
+                      );
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      selected
+                        ? "bg-red-500 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* View count */}
