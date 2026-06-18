@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, ExternalLink, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { Eye, EyeOff, Search, Copy, Check, ChevronUp, ChevronDown, Download } from "lucide-react";
 import { SearchVideoItem, SearchResponse } from "@/app/api/search/route";
 
 type MatchType = "partial" | "exact";
@@ -227,6 +227,7 @@ export default function Home() {
   });
 
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
   const [loading, setLoading] = useState(false);
@@ -675,10 +676,15 @@ export default function Home() {
                         <tr key={v.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
+                            <a
+                              href={`https://www.youtube.com/watch?v=${v.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-3 group"
+                            >
                               <img src={v.thumbnailUrl} alt="" className="h-10 w-[72px] object-cover rounded flex-shrink-0 bg-gray-100" />
-                              <span className="text-gray-800 line-clamp-2 leading-snug">{v.title}</span>
-                            </div>
+                              <span className="text-gray-800 line-clamp-2 leading-snug group-hover:text-red-500 transition-colors">{v.title}</span>
+                            </a>
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap max-w-[120px] truncate">
                             <a
@@ -704,14 +710,20 @@ export default function Home() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <a
-                              href={`https://www.youtube.com/watch?v=${v.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              title="URLをコピー"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`https://www.youtube.com/watch?v=${v.id}`);
+                                setCopiedId(v.id);
+                                setTimeout(() => setCopiedId(null), 2000);
+                              }}
                               className="text-gray-400 hover:text-red-500 transition-colors"
                             >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                              {copiedId === v.id
+                                ? <Check className="h-4 w-4 text-green-500" />
+                                : <Copy className="h-4 w-4" />}
+                            </button>
                           </td>
                         </tr>
                       ))}
