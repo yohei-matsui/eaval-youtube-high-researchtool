@@ -11,6 +11,7 @@ type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom" | "";
 type ViewFilter = "1000" | "10000" | "50000" | "100000" | "custom" | "";
 type SpreadFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom" | "";
 type DurationValue = "short" | "medium" | "long";
+type SubscriberRange = "u100" | "100-1k" | "1k-5k" | "5k-10k" | "10k-20k" | "20k-50k" | "50k-100k" | "100k-1m";
 type SortKey = "publishedAt" | "viewCount" | "spreadRate";
 type SortDir = "asc" | "desc";
 
@@ -20,6 +21,7 @@ interface ClientFilters {
   spreadMin: SpreadFilter;
   spreadCustom: string;
   durations: DurationValue[];
+  subscriberRanges: SubscriberRange[];
 }
 
 function fmt(n: number): string {
@@ -75,6 +77,22 @@ function applyClientFilters(
         if (d === "short") return sec < 180;
         if (d === "medium") return sec >= 180 && sec < 1200;
         if (d === "long") return sec >= 1200;
+        return false;
+      });
+      if (!match) return false;
+    }
+
+    if (filters.subscriberRanges.length > 0) {
+      const s = v.subscriberCount;
+      const match = filters.subscriberRanges.some((r) => {
+        if (r === "u100")     return s < 100;
+        if (r === "100-1k")   return s >= 100 && s < 1000;
+        if (r === "1k-5k")   return s >= 1000 && s < 5000;
+        if (r === "5k-10k")  return s >= 5000 && s < 10000;
+        if (r === "10k-20k") return s >= 10000 && s < 20000;
+        if (r === "20k-50k") return s >= 20000 && s < 50000;
+        if (r === "50k-100k") return s >= 50000 && s < 100000;
+        if (r === "100k-1m") return s >= 100000 && s < 1000000;
         return false;
       });
       if (!match) return false;
@@ -176,7 +194,18 @@ const viewOptions: { label: string; value: ViewFilter }[] = [
   { label: "カスタム", value: "custom" },
 ];
 
-const durationOptions: { label: string; value: DurationFilter }[] = [
+const subscriberRangeOptions: { label: string; value: SubscriberRange }[] = [
+  { label: "100人未満",       value: "u100" },
+  { label: "100〜1000人未満", value: "100-1k" },
+  { label: "1000〜5000人未満", value: "1k-5k" },
+  { label: "5000〜1万人未満", value: "5k-10k" },
+  { label: "1万〜2万人未満",  value: "10k-20k" },
+  { label: "2〜5万人未満",   value: "20k-50k" },
+  { label: "5万〜10万人未満", value: "50k-100k" },
+  { label: "10万〜100万人未満", value: "100k-1m" },
+];
+
+const durationOptions: { label: string; value: DurationValue }[] = [
   { label: "3分未満", value: "short" },
   { label: "3〜20分", value: "medium" },
   { label: "20分以上", value: "long" },
@@ -224,6 +253,7 @@ export default function Home() {
     spreadMin: "",
     spreadCustom: "",
     durations: [],
+    subscriberRanges: [],
   });
 
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
@@ -541,6 +571,39 @@ export default function Home() {
                         selected
                           ? clientFilters.durations.filter((d) => d !== v)
                           : [...clientFilters.durations, v]
+                      );
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      selected
+                        ? "bg-red-500 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Subscriber count */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">チャンネル登録者数
+              <span className="ml-2 text-xs font-normal text-gray-400">複数選択可</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {subscriberRangeOptions.map((o) => {
+                const selected = clientFilters.subscriberRanges.includes(o.value);
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => {
+                      updateFilter(
+                        "subscriberRanges",
+                        selected
+                          ? clientFilters.subscriberRanges.filter((r) => r !== o.value)
+                          : [...clientFilters.subscriberRanges, o.value]
                       );
                     }}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${

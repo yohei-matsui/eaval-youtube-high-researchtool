@@ -11,6 +11,7 @@ export interface SearchVideoItem {
   spreadRate: number;
   durationSeconds: number;
   channelBaseline: number;
+  subscriberCount: number;
 }
 
 export interface SearchResponse {
@@ -62,20 +63,24 @@ async function fetchVideoDetails(
   return map;
 }
 
-// チャンネルIDからuploadsプレイリストIDを一括取得（channels.list: 1クォータ/回）
-async function fetchUploadPlaylistIds(channelIds: string[], apiKey: string): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+// チャンネルIDからuploadsプレイリストIDと登録者数を一括取得（channels.list: 1クォータ/回）
+async function fetchChannelInfo(
+  channelIds: string[],
+  apiKey: string
+): Promise<Map<string, { uploadPlaylistId: string; subscriberCount: number }>> {
+  const map = new Map<string, { uploadPlaylistId: string; subscriberCount: number }>();
   for (let i = 0; i < channelIds.length; i += 50) {
     const chunk = channelIds.slice(i, i + 50);
     const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-    url.searchParams.set("part", "contentDetails");
+    url.searchParams.set("part", "contentDetails,statistics");
     url.searchParams.set("id", chunk.join(","));
     url.searchParams.set("key", apiKey);
     const res = await fetch(url.toString());
     const data = await res.json();
     for (const item of data.items ?? []) {
-      const playlistId = item.contentDetails?.relatedPlaylists?.uploads;
-      if (playlistId) map.set(item.id, playlistId);
+      const uploadPlaylistId = item.contentDetails?.relatedPlaylists?.uploads ?? "";
+      const subscriberCount = parseInt(item.statistics?.subscriberCount ?? "0", 10);
+      if (uploadPlaylistId) map.set(item.id, { uploadPlaylistId, subscriberCount });
     }
   }
   return map;
@@ -191,9 +196,9 @@ export async function POST(request: NextRequest) {
     channelIds.add(d.channelId);
   }
 
-  // Step1: channels.list で uploadsプレイリストIDを一括取得（1クォータ/50ch）
+  // Step1: channels.list で uploadsプレイリストID＆登録者数を一括取得（1クォータ/50ch）
   const uniqueChannelIds = [...channelIds];
-  const uploadPlaylistMap = await fetchUploadPlaylistIds(uniqueChannelIds, apiKey);
+  const channelInfoMap = await fetchChannelInfo(uniqueChannelIds, apiKey);
 
   // Step2: 各チャンネルのplaylistItems + videos で中央値を並列取得（2クォータ/ch）
   const channelBaselineMap = new Map<string, number>();
@@ -202,9 +207,9 @@ export async function POST(request: NextRequest) {
     const chunk = uniqueChannelIds.slice(i, i + 10);
     const results = await Promise.all(
       chunk.map(async (cid) => {
-        const playlistId = uploadPlaylistMap.get(cid);
-        if (!playlistId) return { cid, b: 0 };
-        const b = await fetchChannelBaseline(playlistId, apiKey);
+        const info = channelInfoMap.get(cid);
+        if (!info) return { cid, b: 0 };
+        const b = await fetchChannelBaseline(info.uploadPlaylistId, apiKey);
         return { cid, b };
       })
     );
@@ -215,9 +220,11 @@ export async function POST(request: NextRequest) {
 
   const videos: SearchVideoItem[] = rawVideos.map((v) => {
     const channelBaseline = channelBaselineMap.get(v.channelId) ?? 0;
+    const subscriberCount = channelInfoMap.get(v.channelId)?.subscriberCount ?? 0;
     return {
       ...v,
       channelBaseline,
+      subscriberCount,
       spreadRate: channelBaseline > 0 ? v.viewCount / channelBaseline : 0,
     };
   });
