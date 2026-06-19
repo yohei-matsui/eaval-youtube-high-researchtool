@@ -200,7 +200,7 @@ const subscriberRangeOptions: { label: string; value: SubscriberRange }[] = [
   { label: "1000〜5000人未満", value: "1k-5k" },
   { label: "5000〜1万人未満", value: "5k-10k" },
   { label: "1万〜2万人未満",  value: "10k-20k" },
-  { label: "2〜5万人未満",   value: "20k-50k" },
+  { label: "2万〜5万人未満", value: "20k-50k" },
   { label: "5万〜10万人未満", value: "50k-100k" },
   { label: "10万〜100万人未満", value: "100k-1m" },
 ];
