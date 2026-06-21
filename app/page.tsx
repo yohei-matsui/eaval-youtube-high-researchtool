@@ -48,7 +48,6 @@ function applyClientFilters(
       const title = v.title.toLowerCase();
       if (matchType === "exact" && !title.includes(q)) return false;
     }
-
     if (filters.viewMin) {
       let min: number | null = null;
       if (filters.viewMin === "custom") {
@@ -59,7 +58,6 @@ function applyClientFilters(
       }
       if (min !== null && v.viewCount < min) return false;
     }
-
     if (filters.spreadMin) {
       let minRate: number | null = null;
       if (filters.spreadMin === "custom") {
@@ -70,7 +68,6 @@ function applyClientFilters(
       }
       if (minRate !== null && v.spreadRate < minRate) return false;
     }
-
     if (filters.durations.length > 0) {
       const sec = v.durationSeconds;
       const match = filters.durations.some((d) => {
@@ -81,23 +78,21 @@ function applyClientFilters(
       });
       if (!match) return false;
     }
-
     if (filters.subscriberRanges.length > 0) {
       const s = v.subscriberCount;
       const match = filters.subscriberRanges.some((r) => {
-        if (r === "u100")     return s < 100;
-        if (r === "100-1k")   return s >= 100 && s < 1000;
-        if (r === "1k-5k")   return s >= 1000 && s < 5000;
-        if (r === "5k-10k")  return s >= 5000 && s < 10000;
-        if (r === "10k-20k") return s >= 10000 && s < 20000;
-        if (r === "20k-50k") return s >= 20000 && s < 50000;
+        if (r === "u100")      return s < 100;
+        if (r === "100-1k")    return s >= 100 && s < 1000;
+        if (r === "1k-5k")    return s >= 1000 && s < 5000;
+        if (r === "5k-10k")   return s >= 5000 && s < 10000;
+        if (r === "10k-20k")  return s >= 10000 && s < 20000;
+        if (r === "20k-50k")  return s >= 20000 && s < 50000;
         if (r === "50k-100k") return s >= 50000 && s < 100000;
-        if (r === "100k-1m") return s >= 100000 && s < 1000000;
+        if (r === "100k-1m")  return s >= 100000 && s < 1000000;
         return false;
       });
       if (!match) return false;
     }
-
     return true;
   });
 }
@@ -124,6 +119,7 @@ function exportCsv(videos: SearchVideoItem[], query: string) {
   URL.revokeObjectURL(url);
 }
 
+/* ── Chip group: single-select ────────────────────────────────────────── */
 function ChipGroup<T extends string>({
   options,
   value,
@@ -140,10 +136,8 @@ function ChipGroup<T extends string>({
           key={o.value}
           type="button"
           onClick={() => onChange(value === o.value ? ("" as T) : o.value)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            value === o.value
-              ? "bg-red-500 text-white shadow-sm"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          className={`px-3 py-1 text-xs font-medium transition-all ${
+            value === o.value ? "lg-chip-on" : "lg-chip"
           }`}
         >
           {o.label}
@@ -153,6 +147,7 @@ function ChipGroup<T extends string>({
   );
 }
 
+/* ── Sort header ──────────────────────────────────────────────────────── */
 function SortHeader({
   label, sortKey, currentKey, currentDir, onSort,
 }: {
@@ -160,7 +155,12 @@ function SortHeader({
 }) {
   const active = currentKey === sortKey;
   return (
-    <button type="button" onClick={() => onSort(sortKey)} className="flex items-center gap-1 font-medium hover:text-red-600 transition-colors">
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className="flex items-center gap-1 font-medium transition-colors"
+      style={{ color: active ? "#e63946" : undefined }}
+    >
       {label}
       <span className="flex flex-col">
         <ChevronUp className={`h-3 w-3 -mb-1 ${active && currentDir === "asc" ? "text-red-500" : "text-gray-300"}`} />
@@ -170,6 +170,16 @@ function SortHeader({
   );
 }
 
+/* ── Section label ────────────────────────────────────────────────────── */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(0,0,0,0.32)" }}>
+      {children}
+    </p>
+  );
+}
+
+/* ─── Static data ─────────────────────────────────────────────────────── */
 const regionOptions: { label: string; value: Region; code: string }[] = [
   { label: "🇯🇵 日本", value: "japan", code: "JP" },
   { label: "🇰🇷 韓国", value: "korea", code: "KR" },
@@ -195,13 +205,13 @@ const viewOptions: { label: string; value: ViewFilter }[] = [
 ];
 
 const subscriberRangeOptions: { label: string; value: SubscriberRange }[] = [
-  { label: "100人未満",       value: "u100" },
-  { label: "100〜1000人未満", value: "100-1k" },
-  { label: "1000〜5000人未満", value: "1k-5k" },
-  { label: "5000〜1万人未満", value: "5k-10k" },
-  { label: "1万〜2万人未満",  value: "10k-20k" },
-  { label: "2万〜5万人未満", value: "20k-50k" },
-  { label: "5万〜10万人未満", value: "50k-100k" },
+  { label: "100人未満",         value: "u100" },
+  { label: "100〜1000人未満",   value: "100-1k" },
+  { label: "1000〜5000人未満",  value: "1k-5k" },
+  { label: "5000〜1万人未満",   value: "5k-10k" },
+  { label: "1万〜2万人未満",    value: "10k-20k" },
+  { label: "2万〜5万人未満",    value: "20k-50k" },
+  { label: "5万〜10万人未満",   value: "50k-100k" },
   { label: "10万〜100万人未満", value: "100k-1m" },
 ];
 
@@ -233,11 +243,12 @@ async function translateText(text: string, targetLang: string): Promise<string> 
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   Main Page
+════════════════════════════════════════════════════════════════════════ */
 export default function Home() {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
-
-  // Search params (trigger API call)
   const [queryInput, setQueryInput] = useState("");
   const [originalQuery, setOriginalQuery] = useState("");
   const [translating, setTranslating] = useState(false);
@@ -245,17 +256,9 @@ export default function Home() {
   const [region, setRegion] = useState<Region>("japan");
   const [dateRange, setDateRange] = useState<DateRange>("");
   const [dateCustomDays, setDateCustomDays] = useState("");
-
-  // Client-side filters
   const [clientFilters, setClientFilters] = useState<ClientFilters>({
-    viewMin: "",
-    viewCustom: "",
-    spreadMin: "",
-    spreadCustom: "",
-    durations: [],
-    subscriberRanges: [],
+    viewMin: "", viewCustom: "", spreadMin: "", spreadCustom: "", durations: [], subscriberRanges: [],
   });
-
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -273,22 +276,15 @@ export default function Home() {
   const handleRegionChange = useCallback(async (newRegion: Region) => {
     setRegion(newRegion);
     if (!queryInput.trim()) return;
-
     const targetLang = newRegion === "korea" ? "ko" : newRegion === "usa" ? "en" : "ja";
-
     if (newRegion === "japan") {
-      // 日本に戻したら元のクエリを復元
       if (originalQuery) setQueryInput(originalQuery);
       return;
     }
-
-    // 初回翻訳前に元のクエリを保存
     if (region === "japan") setOriginalQuery(queryInput);
-
     setTranslating(true);
     const translated = await translateText(
-      region === "japan" ? queryInput : (originalQuery || queryInput),
-      targetLang
+      region === "japan" ? queryInput : (originalQuery || queryInput), targetLang
     );
     setQueryInput(translated);
     setTranslating(false);
@@ -345,35 +341,37 @@ export default function Home() {
 
   const paged = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
   const hasMore = paged.length < filtered.length;
-
   const canSearch = apiKey.trim() && queryInput.trim() && !loading;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
-        <Image src="/eaval-logo.png" alt="EAVAL" width={32} height={32} className="flex-shrink-0" />
+    <div className="lg-base">
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header className="lg-header sticky top-0 z-20 px-6 py-3.5 flex items-center gap-3">
+        <Image src="/eaval-logo.png" alt="EAVAL" width={30} height={30} className="flex-shrink-0 rounded-lg" />
         <div className="flex flex-col">
-          <span className="text-lg font-bold text-gray-900">YouTube 高精度検索ツール</span>
-          <span className="text-xs text-gray-400">by 株式会社EAVAL</span>
+          <span className="text-[15px] font-bold" style={{ color: "#111827" }}>YouTube 高精度検索ツール</span>
+          <span className="text-[11px]" style={{ color: "rgba(0,0,0,0.35)" }}>by 株式会社EAVAL</span>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 py-8 space-y-5">
 
-        {/* Overview */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm text-center space-y-4">
-          <h1 className="text-xl font-bold text-gray-900 leading-relaxed">
-            YouTubeを<span className="text-red-500">高精度</span>に検索し、リサーチを効率化するツールです
+        {/* ── Overview panel ──────────────────────────────────────────── */}
+        <div className="lg-panel p-8 space-y-5 text-center">
+          <h1 className="text-xl font-bold leading-relaxed" style={{ color: "#111827" }}>
+            YouTubeを<span style={{ color: "#e63946" }}>高精度</span>に検索し、リサーチを効率化するツールです
           </h1>
-          <p className="text-sm text-gray-600 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-sm leading-relaxed max-w-2xl mx-auto" style={{ color: "#6b7280" }}>
             キーワード・公開地域・公開日・動画時間・再生回数・拡散率を組み合わせて絞り込み。<br />
-            各チャンネルの実力を基準にした「<strong className="text-gray-800">拡散率</strong>」で、そのチャンネルの中で異常に伸びた動画を発見できます。<br />
+            各チャンネルの実力を基準にした「<strong style={{ color: "#374151" }}>拡散率</strong>」で、そのチャンネルの中で異常に伸びた動画を発見できます。<br />
             韓国・アメリカのトレンドも、キーワードを自動翻訳して即検索。
           </p>
 
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 pt-2">使い方</p>
+          <SectionLabel>使い方</SectionLabel>
 
-          <div className="flex items-stretch gap-1.5 pt-1">
+          {/* How-to steps */}
+          <div className="flex items-stretch gap-2 pt-1">
             {([
               {
                 step: "1",
@@ -417,18 +415,20 @@ export default function Home() {
               },
             ] as const).map((item, i) => (
               <div key={item.step} className="flex flex-1 items-start">
-                <div className="flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50 px-2 py-4 text-center">
-                  <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-white text-red-400 shadow-sm ring-1 ring-gray-100">
+                <div className="lg-step-card flex flex-1 flex-col items-center gap-2.5 px-2 py-4 text-center">
+                  {/* Icon with step badge */}
+                  <div className="relative flex h-11 w-11 items-center justify-center lg-step-icon" style={{ color: "#e63946" }}>
                     {item.icon}
-                    <span className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                    <span className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                      style={{ background: "linear-gradient(145deg,#f04050,#c01020)", boxShadow: "0 2px 6px rgba(220,38,38,0.4)" }}>
                       {item.step}
                     </span>
                   </div>
-                  <p className="whitespace-pre-line text-[11px] font-bold leading-tight text-gray-800">{item.label}</p>
-                  <p className="text-[10px] leading-snug text-gray-500">{item.desc}</p>
+                  <p className="whitespace-pre-line text-[11px] font-bold leading-tight" style={{ color: "#1f2937" }}>{item.label}</p>
+                  <p className="text-[10px] leading-snug" style={{ color: "#9ca3af" }}>{item.desc}</p>
                 </div>
                 {i < 3 && (
-                  <div className="shrink-0 px-0.5 pt-5 text-gray-300">
+                  <div className="shrink-0 px-0.5 pt-5" style={{ color: "rgba(0,0,0,0.18)" }}>
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                     </svg>
@@ -438,41 +438,56 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-700 text-left mt-2">
-            <strong>拡散率について：</strong> 各チャンネルの最新50本の再生回数の中央値をベースラインとし、その動画が何倍の再生数を得ているかを示します。チャンネルの規模に関係なく「本当に伸びた動画」を見つけるのに使えます。
+          {/* Amber info */}
+          <div className="lg-amber px-4 py-3 text-xs text-left mt-1" style={{ color: "#78350f" }}>
+            <strong>拡散率について：</strong>
+            各チャンネルの最新50本の再生回数の中央値をベースラインとし、その動画が何倍の再生数を得ているかを示します。チャンネルの規模に関係なく「本当に伸びた動画」を見つけるのに使えます。
           </div>
         </div>
 
-        {/* API Key */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">API設定</h2>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-700">YouTube Data API キー</label>
+        {/* ── API Key panel ───────────────────────────────────────────── */}
+        <div className="lg-panel p-6 space-y-4">
+          <SectionLabel>API設定</SectionLabel>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>YouTube Data API キー</label>
             <div className="relative">
               <input
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="AIza..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition"
+                className="lg-input w-full px-3 py-2.5 pr-10 text-sm"
+                style={{ color: "#111827" }}
               />
-              <button type="button" onClick={() => setShowKey((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button
+                type="button"
+                onClick={() => setShowKey((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                style={{ color: "rgba(0,0,0,0.3)" }}
+              >
                 {showKey ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-xs text-gray-400">
-              <a href="https://note.com/yuki_tech/n/na82ad826df1f" target="_blank" rel="noopener noreferrer" className="underline">YouTube Data API v3の取得方法はこちら（参考サイト）</a>
+            <p className="text-xs" style={{ color: "rgba(0,0,0,0.38)" }}>
+              <a
+                href="https://note.com/yuki_tech/n/na82ad826df1f"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dashed underline-offset-2 hover:opacity-70 transition-opacity"
+              >
+                YouTube Data API v3の取得方法はこちら（参考サイト）
+              </a>
             </p>
           </div>
         </div>
 
-        {/* Search card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">検索条件</h2>
+        {/* ── Search conditions panel ─────────────────────────────────── */}
+        <div className="lg-panel p-6 space-y-6">
+          <SectionLabel>検索条件</SectionLabel>
 
-          {/* Query + match type */}
+          {/* Keyword + match type */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">検索キーワード</label>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>検索キーワード</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -480,52 +495,52 @@ export default function Home() {
                 onChange={(e) => setQueryInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && canSearch && handleSearch()}
                 placeholder="例: ダイエット 筋トレ"
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition"
+                className="lg-input flex-1 px-3 py-2.5 text-sm"
+                style={{ color: "#111827" }}
               />
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium">
+              {/* Match type — segment control */}
+              <div className="lg-seg-wrap flex text-sm font-medium">
                 <button
                   type="button"
                   onClick={() => setMatchType("partial")}
-                  className={`px-3 py-2.5 transition-colors ${matchType === "partial" ? "bg-red-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`px-3 py-2 transition-all ${matchType === "partial" ? "lg-seg-active" : "lg-seg-idle"}`}
                 >
                   部分一致
                 </button>
                 <button
                   type="button"
                   onClick={() => setMatchType("exact")}
-                  className={`px-3 py-2.5 transition-colors ${matchType === "exact" ? "bg-red-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  className={`px-3 py-2 transition-all ${matchType === "exact" ? "lg-seg-active" : "lg-seg-idle"}`}
                 >
                   完全一致
                 </button>
               </div>
             </div>
             {matchType === "exact" && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <div className="lg-amber px-3 py-2 text-xs" style={{ color: "#92400e" }}>
                 完全一致：取得した動画のタイトルにキーワードが含まれるものだけ表示します
-              </p>
+              </div>
             )}
           </div>
 
-          {/* Region */}
+          {/* Region — segment control */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium flex items-center gap-2" style={{ color: "#374151" }}>
               公開地域
               {translating && (
-                <span className="ml-2 text-xs font-normal text-blue-500 animate-pulse">キーワードを翻訳中…</span>
+                <span className="text-xs font-normal animate-pulse" style={{ color: "#60a5fa" }}>
+                  キーワードを翻訳中…
+                </span>
               )}
             </label>
-            <div className="flex gap-2">
+            <div className="lg-seg-wrap flex w-fit text-sm font-medium">
               {regionOptions.map((r) => (
                 <button
                   key={r.value}
                   type="button"
                   onClick={() => handleRegionChange(r.value)}
                   disabled={translating}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-60 ${
-                    region === r.value
-                      ? "bg-red-500 text-white shadow-sm"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`px-4 py-2 transition-all disabled:opacity-50 ${region === r.value ? "lg-seg-active" : "lg-seg-idle"}`}
                 >
                   {r.label}
                 </button>
@@ -535,7 +550,7 @@ export default function Home() {
 
           {/* Date range */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">公開日</label>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>公開日</label>
             <ChipGroup options={dateOptions} value={dateRange} onChange={(v) => setDateRange(v as DateRange)} />
             {dateRange === "custom" && (
               <div className="flex items-center gap-2 pt-1">
@@ -545,17 +560,19 @@ export default function Home() {
                   value={dateCustomDays}
                   onChange={(e) => setDateCustomDays(e.target.value)}
                   placeholder="日数"
-                  className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                  className="lg-input w-28 px-3 py-2 text-sm"
+                  style={{ color: "#111827" }}
                 />
-                <span className="text-sm text-gray-500">日以内</span>
+                <span className="text-sm" style={{ color: "#6b7280" }}>日以内</span>
               </div>
             )}
           </div>
 
-          {/* Duration - 複数選択 */}
+          {/* Duration — multi-select */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">動画時間
-              <span className="ml-2 text-xs font-normal text-gray-400">複数選択可</span>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>
+              動画時間
+              <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>複数選択可</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {durationOptions.map((o) => {
@@ -566,18 +583,13 @@ export default function Home() {
                     type="button"
                     onClick={() => {
                       const v = o.value as DurationValue;
-                      updateFilter(
-                        "durations",
+                      updateFilter("durations",
                         selected
                           ? clientFilters.durations.filter((d) => d !== v)
                           : [...clientFilters.durations, v]
                       );
                     }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      selected
-                        ? "bg-red-500 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                    className={`px-3 py-1 text-xs font-medium transition-all ${selected ? "lg-chip-on" : "lg-chip"}`}
                   >
                     {o.label}
                   </button>
@@ -586,10 +598,11 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Subscriber count */}
+          {/* Subscriber count — multi-select */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">チャンネル登録者数
-              <span className="ml-2 text-xs font-normal text-gray-400">複数選択可</span>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>
+              チャンネル登録者数
+              <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>複数選択可</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {subscriberRangeOptions.map((o) => {
@@ -599,18 +612,13 @@ export default function Home() {
                     key={o.value}
                     type="button"
                     onClick={() => {
-                      updateFilter(
-                        "subscriberRanges",
+                      updateFilter("subscriberRanges",
                         selected
                           ? clientFilters.subscriberRanges.filter((r) => r !== o.value)
                           : [...clientFilters.subscriberRanges, o.value]
                       );
                     }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      selected
-                        ? "bg-red-500 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                    className={`px-3 py-1 text-xs font-medium transition-all ${selected ? "lg-chip-on" : "lg-chip"}`}
                   >
                     {o.label}
                   </button>
@@ -621,7 +629,7 @@ export default function Home() {
 
           {/* View count */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">再生回数</label>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>再生回数</label>
             <ChipGroup options={viewOptions} value={clientFilters.viewMin} onChange={(v) => updateFilter("viewMin", v as ViewFilter)} />
             {clientFilters.viewMin === "custom" && (
               <div className="flex items-center gap-2 pt-1">
@@ -631,19 +639,20 @@ export default function Home() {
                   value={clientFilters.viewCustom}
                   onChange={(e) => updateFilter("viewCustom", e.target.value)}
                   placeholder="例: 30000"
-                  className="w-40 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                  className="lg-input w-40 px-3 py-2 text-sm"
+                  style={{ color: "#111827" }}
                 />
-                <span className="text-sm text-gray-500">回以上</span>
+                <span className="text-sm" style={{ color: "#6b7280" }}>回以上</span>
               </div>
             )}
           </div>
 
           {/* Spread rate */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>
               拡散率
               {data && (
-                <span className="ml-2 text-xs font-normal text-gray-400">
+                <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>
                   各チャンネルの最新50本の中央値に対する倍率
                 </span>
               )}
@@ -658,31 +667,35 @@ export default function Home() {
                   value={clientFilters.spreadCustom}
                   onChange={(e) => updateFilter("spreadCustom", e.target.value)}
                   placeholder="例: 2.5"
-                  className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                  className="lg-input w-28 px-3 py-2 text-sm"
+                  style={{ color: "#111827" }}
                 />
-                <span className="text-sm text-gray-500">x以上</span>
+                <span className="text-sm" style={{ color: "#6b7280" }}>x以上</span>
               </div>
             )}
           </div>
 
+          {/* Search button */}
           <button
             type="button"
             onClick={handleSearch}
             disabled={!canSearch}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="lg-search-btn w-full flex items-center justify-center gap-2 py-3.5 text-sm font-semibold text-white"
           >
             <Search className="h-4 w-4" />
             {loading ? "検索中…" : "検索"}
           </button>
         </div>
 
+        {/* ── Error ───────────────────────────────────────────────────── */}
         {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+          <div className="lg-red-info px-4 py-3 text-sm" style={{ color: "#b91c1c" }}>{error}</div>
         )}
 
+        {/* ── Loading ─────────────────────────────────────────────────── */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-            <svg className="animate-spin h-7 w-7 text-red-400" viewBox="0 0 24 24" fill="none">
+          <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: "rgba(0,0,0,0.3)" }}>
+            <svg className="animate-spin h-7 w-7" viewBox="0 0 24 24" fill="none" style={{ color: "#e63946" }}>
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
@@ -690,34 +703,38 @@ export default function Home() {
           </div>
         )}
 
+        {/* ── Results ─────────────────────────────────────────────────── */}
         {data && (
           <>
-            {/* Summary */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex flex-wrap items-center gap-4 shadow-sm text-sm text-gray-600">
-              <span>検索: <strong className="text-gray-900">「{data.query}」</strong></span>
-              <span>地域: <strong className="text-gray-900">{regionOptions.find(r => r.code === data.region)?.label ?? data.region}</strong></span>
-              <span>取得: <strong className="text-gray-900">{data.totalFetched}件</strong></span>
-              <span className="text-xs text-gray-400">拡散率 = 各チャンネルの最新50本の中央値を基準</span>
+            {/* Summary bar */}
+            <div className="lg-panel px-5 py-3.5 flex flex-wrap items-center gap-4 text-sm" style={{ color: "#6b7280" }}>
+              <span>検索: <strong style={{ color: "#111827" }}>「{data.query}」</strong></span>
+              <span>地域: <strong style={{ color: "#111827" }}>{regionOptions.find(r => r.code === data.region)?.label ?? data.region}</strong></span>
+              <span>取得: <strong style={{ color: "#111827" }}>{data.totalFetched}件</strong></span>
+              <span className="text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>拡散率 = 各チャンネルの最新50本の中央値を基準</span>
             </div>
 
-            {/* Results */}
             {filtered.length > 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                  <span className="text-sm text-gray-500">{paged.length} / {filtered.length}件</span>
+              <div className="lg-panel overflow-hidden">
+                {/* Table header controls */}
+                <div className="flex items-center justify-between px-5 py-3 lg-divider">
+                  <span className="text-sm" style={{ color: "rgba(0,0,0,0.4)" }}>{paged.length} / {filtered.length}件</span>
                   <button
                     type="button"
                     onClick={() => exportCsv(filtered, searchedQuery)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    className="lg-csv-btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                    style={{ color: "#4b5563" }}
                   >
                     <Download className="h-3.5 w-3.5" />
                     CSVダウンロード
                   </button>
                 </div>
+
+                {/* Table */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
                     <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500">
+                      <tr className="text-xs" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(0,0,0,0.015)", color: "#9ca3af" }}>
                         <th className="px-4 py-3 text-left w-10">#</th>
                         <th className="px-4 py-3 text-left">動画</th>
                         <th className="px-4 py-3 text-left whitespace-nowrap">チャンネル</th>
@@ -727,17 +744,21 @@ export default function Home() {
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="再生回数" sortKey="viewCount" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
-                        <th className="px-4 py-3 text-right whitespace-nowrap text-gray-400">CH中央値</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>CH中央値</th>
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="拡散率" sortKey="spreadRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 w-10"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody>
                       {paged.map((v, i) => (
-                        <tr key={v.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                        <tr
+                          key={v.id}
+                          className="lg-row transition-colors"
+                          style={{ borderTop: "1px solid rgba(0,0,0,0.035)" }}
+                        >
+                          <td className="px-4 py-3 text-xs" style={{ color: "rgba(0,0,0,0.25)" }}>{i + 1}</td>
                           <td className="px-4 py-3">
                             <a
                               href={`https://www.youtube.com/watch?v=${v.id}`}
@@ -745,29 +766,44 @@ export default function Home() {
                               rel="noopener noreferrer"
                               className="flex items-center gap-3 group"
                             >
-                              <img src={v.thumbnailUrl} alt="" className="h-10 w-[72px] object-cover rounded flex-shrink-0 bg-gray-100" />
-                              <span className="text-gray-800 line-clamp-2 leading-snug group-hover:text-red-500 transition-colors">{v.title}</span>
+                              <img
+                                src={v.thumbnailUrl}
+                                alt=""
+                                className="h-10 w-[72px] object-cover rounded-lg flex-shrink-0"
+                                style={{ background: "rgba(0,0,0,0.06)" }}
+                              />
+                              <span
+                                className="line-clamp-2 leading-snug transition-colors"
+                                style={{ color: "#1f2937" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = "#e63946")}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = "#1f2937")}
+                              >
+                                {v.title}
+                              </span>
                             </a>
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap max-w-[120px] truncate">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap max-w-[120px] truncate">
                             <a
                               href={`https://www.youtube.com/channel/${v.channelId}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="hover:text-red-500 transition-colors"
+                              className="transition-colors"
+                              style={{ color: "#9ca3af" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#e63946")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = "#9ca3af")}
                             >
                               {v.channelName}
                             </a>
                           </td>
-                          <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">{fmtDate(v.publishedAt)}</td>
-                          <td className="px-4 py-3 text-right font-medium text-gray-800 whitespace-nowrap">{fmt(v.viewCount)}</td>
-                          <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">{fmt(Math.round(v.channelBaseline))}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap text-xs" style={{ color: "#6b7280" }}>{fmtDate(v.publishedAt)}</td>
+                          <td className="px-4 py-3 text-right font-semibold whitespace-nowrap" style={{ color: "#111827" }}>{fmt(v.viewCount)}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>{fmt(Math.round(v.channelBaseline))}</td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                              v.spreadRate >= 3 ? "bg-red-100 text-red-700"
-                              : v.spreadRate >= 1.5 ? "bg-orange-100 text-orange-700"
-                              : v.spreadRate >= 1 ? "bg-yellow-100 text-yellow-700"
-                              : "bg-gray-100 text-gray-500"
+                            <span className={`inline-block px-2 py-0.5 text-xs font-semibold ${
+                              v.spreadRate >= 3 ? "lg-badge-red"
+                              : v.spreadRate >= 1.5 ? "lg-badge-orange"
+                              : v.spreadRate >= 1 ? "lg-badge-yellow"
+                              : "lg-badge-gray"
                             }`}>
                               {v.spreadRate.toFixed(2)}x
                             </span>
@@ -781,10 +817,13 @@ export default function Home() {
                                 setCopiedId(v.id);
                                 setTimeout(() => setCopiedId(null), 2000);
                               }}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              className="transition-colors"
+                              style={{ color: "rgba(0,0,0,0.28)" }}
+                              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#e63946")}
+                              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(0,0,0,0.28)")}
                             >
                               {copiedId === v.id
-                                ? <Check className="h-4 w-4 text-green-500" />
+                                ? <Check className="h-4 w-4" style={{ color: "#16a34a" }} />
                                 : <Copy className="h-4 w-4" />}
                             </button>
                           </td>
@@ -793,21 +832,26 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Load more */}
                 {hasMore && (
-                  <div className="px-4 py-4 border-t border-gray-100 text-center">
+                  <div className="px-4 py-4 text-center" style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
                     <button
                       type="button"
                       onClick={() => setPage((p) => p + 1)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      className="lg-more-btn inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium"
+                      style={{ color: "#374151" }}
                     >
                       次の10件を見る
-                      <span className="text-xs text-gray-400">（残り {filtered.length - paged.length}件）</span>
+                      <span className="text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>
+                        （残り {filtered.length - paged.length}件）
+                      </span>
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center text-gray-400 text-sm shadow-sm">
+              <div className="lg-panel py-16 text-center text-sm" style={{ color: "rgba(0,0,0,0.3)" }}>
                 条件に一致する動画がありません
               </div>
             )}
