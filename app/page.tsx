@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, Copy, Check, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { Eye, EyeOff, Search, Copy, Check, ChevronUp, ChevronDown, Download, Users, X } from "lucide-react";
 import { SearchVideoItem, SearchResponse } from "@/app/api/search/route";
 
 type MatchType = "partial" | "exact";
@@ -261,6 +261,8 @@ export default function Home() {
   });
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [showActiveModal, setShowActiveModal] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
   const [loading, setLoading] = useState(false);
@@ -328,6 +330,24 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey, queryInput, region, dateRange, dateCustomDays]);
 
+  const toggleCheck = useCallback((id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleCheckAll = useCallback((ids: string[]) => {
+    setCheckedIds((prev) => {
+      const allChecked = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allChecked) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     if (!data) return [];
     return [...applyClientFilters(data.videos, searchedQuery, matchType, clientFilters)].sort((a, b) => {
@@ -342,6 +362,24 @@ export default function Home() {
   const paged = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page]);
   const hasMore = paged.length < filtered.length;
   const canSearch = apiKey.trim() && queryInput.trim() && !loading;
+
+  // アクティブユーザー算出
+  const checkedVideos = useMemo(() => {
+    if (!data) return [];
+    return filtered.filter((v) => checkedIds.has(v.id));
+  }, [data, filtered, checkedIds]);
+
+  const activeStats = useMemo(() => {
+    if (checkedVideos.length === 0) return null;
+    const views = checkedVideos.map((v) => v.viewCount);
+    const avg = Math.round(views.reduce((a, b) => a + b, 0) / views.length);
+    const sorted = [...views].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+      : sorted[mid];
+    return { avg, median, count: views.length };
+  }, [checkedVideos]);
 
   return (
     <div className="lg-base">
@@ -735,6 +773,15 @@ export default function Home() {
                   <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
                     <thead>
                       <tr className="text-xs" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: "rgba(0,0,0,0.015)", color: "#9ca3af" }}>
+                        <th className="pl-4 pr-2 py-3 w-8">
+                          <input
+                            type="checkbox"
+                            checked={paged.length > 0 && paged.every((v) => checkedIds.has(v.id))}
+                            onChange={() => toggleCheckAll(paged.map((v) => v.id))}
+                            className="rounded"
+                            style={{ accentColor: "#e63946", cursor: "pointer" }}
+                          />
+                        </th>
                         <th className="px-4 py-3 text-left w-10">#</th>
                         <th className="px-4 py-3 text-left">動画</th>
                         <th className="px-4 py-3 text-left whitespace-nowrap">チャンネル</th>
@@ -758,6 +805,15 @@ export default function Home() {
                           className="lg-row transition-colors"
                           style={{ borderTop: "1px solid rgba(0,0,0,0.035)" }}
                         >
+                          <td className="pl-4 pr-2 py-3">
+                            <input
+                              type="checkbox"
+                              checked={checkedIds.has(v.id)}
+                              onChange={() => toggleCheck(v.id)}
+                              className="rounded"
+                              style={{ accentColor: "#e63946", cursor: "pointer" }}
+                            />
+                          </td>
                           <td className="px-4 py-3 text-xs" style={{ color: "rgba(0,0,0,0.25)" }}>{i + 1}</td>
                           <td className="px-4 py-3">
                             <a
@@ -858,6 +914,148 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* ── Active Users floating bar ──────────────────────────────────── */}
+      {data && checkedIds.size > 0 && (
+        <div
+          className="fixed bottom-6 left-1/2 z-30 flex items-center gap-4 px-5 py-3.5 rounded-2xl"
+          style={{
+            transform: "translateX(-50%)",
+            background: "rgba(255,255,255,0.82)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.9), 0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)",
+            minWidth: 340,
+          }}
+        >
+          <div className="flex items-center gap-2" style={{ color: "#374151" }}>
+            <Users className="h-4 w-4" style={{ color: "#e63946" }} />
+            <span className="text-sm font-medium">
+              <span style={{ color: "#e63946", fontWeight: 700 }}>{checkedIds.size}</span>
+              <span style={{ color: "rgba(0,0,0,0.45)" }}> 本選択中</span>
+            </span>
+          </div>
+          {activeStats && (
+            <div className="flex items-center gap-3 text-sm">
+              <span style={{ color: "rgba(0,0,0,0.4)" }}>平均</span>
+              <strong style={{ color: "#111827" }}>{fmt(activeStats.avg)}</strong>
+              <span style={{ color: "rgba(0,0,0,0.2)" }}>|</span>
+              <span style={{ color: "rgba(0,0,0,0.4)" }}>中央値</span>
+              <strong style={{ color: "#111827" }}>{fmt(activeStats.median)}</strong>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowActiveModal(true)}
+            className="lg-chip-on px-4 py-1.5 text-xs font-semibold text-white flex items-center gap-1.5"
+          >
+            <Users className="h-3.5 w-3.5" />
+            アクティブユーザーを算出
+          </button>
+        </div>
+      )}
+
+      {/* ── Active Users modal ─────────────────────────────────────────── */}
+      {showActiveModal && activeStats && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.28)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+          onClick={() => setShowActiveModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl p-8 space-y-6"
+            style={{
+              background: "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(32px)",
+              WebkitBackdropFilter: "blur(32px)",
+              boxShadow: "inset 0 1px 1px rgba(255,255,255,0.95), 0 24px 64px rgba(0,0,0,0.18)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl"
+                  style={{
+                    background: "linear-gradient(145deg,#f04050,#c01020)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 12px rgba(220,38,38,0.4)",
+                  }}
+                >
+                  <Users className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-base" style={{ color: "#111827" }}>アクティブユーザー算出</p>
+                  <p className="text-xs" style={{ color: "rgba(0,0,0,0.38)" }}>選択した {activeStats.count} 本をベースに算出</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowActiveModal(false)}
+                style={{ color: "rgba(0,0,0,0.3)" }}
+                className="hover:opacity-60 transition-opacity"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                className="rounded-2xl p-4 text-center space-y-1"
+                style={{
+                  background: "rgba(230,57,70,0.07)",
+                  boxShadow: "inset 0 0 0 1px rgba(230,57,70,0.15), inset 0 1px 1px rgba(255,200,200,0.4)",
+                }}
+              >
+                <p className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.4)" }}>平均再生回数</p>
+                <p className="text-2xl font-bold" style={{ color: "#e63946" }}>{fmt(activeStats.avg)}</p>
+                <p className="text-[10px]" style={{ color: "rgba(0,0,0,0.3)" }}>回</p>
+              </div>
+              <div
+                className="rounded-2xl p-4 text-center space-y-1"
+                style={{
+                  background: "rgba(0,0,0,0.03)",
+                  boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06), inset 0 1px 1px rgba(255,255,255,0.7)",
+                }}
+              >
+                <p className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.4)" }}>中央値</p>
+                <p className="text-2xl font-bold" style={{ color: "#111827" }}>{fmt(activeStats.median)}</p>
+                <p className="text-[10px]" style={{ color: "rgba(0,0,0,0.3)" }}>回</p>
+              </div>
+            </div>
+
+            {/* Selected list */}
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {checkedVideos.map((v, i) => (
+                <div
+                  key={v.id}
+                  className="flex items-center justify-between rounded-xl px-3 py-2 text-xs"
+                  style={{ background: "rgba(0,0,0,0.025)" }}
+                >
+                  <span className="text-xs mr-2 font-bold" style={{ color: "rgba(0,0,0,0.25)", minWidth: 16 }}>{i + 1}</span>
+                  <span className="flex-1 truncate" style={{ color: "#374151" }}>{v.title}</span>
+                  <span className="ml-3 font-semibold whitespace-nowrap" style={{ color: "#e63946" }}>{fmt(v.viewCount)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Explanation */}
+            <div
+              className="rounded-2xl px-4 py-3.5 text-xs leading-relaxed space-y-1"
+              style={{
+                background: "rgba(253,224,71,0.10)",
+                boxShadow: "inset 0 0 0 1px rgba(253,200,30,0.28), inset 0 1px 1px rgba(255,240,120,0.5)",
+                color: "#78350f",
+              }}
+            >
+              <p className="font-semibold">なぜ平均値を使うのか？</p>
+              <p>トップ動画はジャンルの枠を超えて幅広い層に見られている可能性があります。平均値を基準にすることで、そのジャンルの実際のアクティブユーザー人口に近い数値が得られます。</p>
+              <p className="pt-1 font-medium">💡 この数値を「自分の目標再生回数」の参考にしましょう。</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
