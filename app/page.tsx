@@ -9,15 +9,20 @@ type MatchType = "partial" | "exact";
 type Region = "japan" | "korea" | "usa";
 type DateRange = "7" | "28" | "90" | "365" | "730" | "1095" | "custom" | "";
 type ViewFilter = "1000" | "10000" | "50000" | "100000" | "custom" | "";
-type SpreadFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom" | "";
+/** 異常値＝再生回数÷チャンネルの最新50本の中央値 */
+type AnomalyFilter = "1.0" | "1.5" | "2.0" | "3.0" | "5.0" | "custom" | "";
+/** 拡散率＝再生回数÷登録者数（社内共通の定義） */
+type SpreadFilter = "1" | "2" | "3" | "5" | "10" | "custom" | "";
 type DurationValue = "short" | "medium" | "long";
 type SubscriberRange = "u100" | "100-1k" | "1k-5k" | "5k-10k" | "10k-20k" | "20k-50k" | "50k-100k" | "100k-1m";
-type SortKey = "publishedAt" | "viewCount" | "spreadRate";
+type SortKey = "publishedAt" | "viewCount" | "anomalyRate" | "spreadRate";
 type SortDir = "asc" | "desc";
 
 interface ClientFilters {
   viewMin: ViewFilter;
   viewCustom: string;
+  anomalyMin: AnomalyFilter;
+  anomalyCustom: string;
   spreadMin: SpreadFilter;
   spreadCustom: string;
   durations: DurationValue[];
@@ -58,6 +63,17 @@ function applyClientFilters(
       }
       if (min !== null && v.viewCount < min) return false;
     }
+    if (filters.anomalyMin) {
+      let minRate: number | null = null;
+      if (filters.anomalyMin === "custom") {
+        const p = parseFloat(filters.anomalyCustom);
+        if (!isNaN(p)) minRate = p;
+      } else {
+        minRate = parseFloat(filters.anomalyMin);
+      }
+      if (minRate !== null && v.anomalyRate < minRate) return false;
+    }
+
     if (filters.spreadMin) {
       let minRate: number | null = null;
       if (filters.spreadMin === "custom") {
@@ -98,15 +114,17 @@ function applyClientFilters(
 }
 
 function exportCsv(videos: SearchVideoItem[], query: string) {
-  const header = ["#", "タイトル", "チャンネル", "公開日", "再生回数", "CH中央値", "拡散率", "URL"];
+  const header = ["#", "タイトル", "チャンネル", "公開日", "再生回数", "登録者数", "拡散率(登録者比)", "CH中央値", "異常値(中央値比)", "URL"];
   const rows = videos.map((v, i) => [
     i + 1,
     `"${v.title.replace(/"/g, '""')}"`,
     `"${v.channelName.replace(/"/g, '""')}"`,
     fmtDate(v.publishedAt),
     v.viewCount,
-    Math.round(v.channelBaseline),
+    v.subscriberCount,
     v.spreadRate.toFixed(2),
+    Math.round(v.channelBaseline),
+    v.anomalyRate.toFixed(2),
     `https://www.youtube.com/watch?v=${v.id}`,
   ]);
   const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
@@ -221,12 +239,21 @@ const durationOptions: { label: string; value: DurationValue }[] = [
   { label: "20分以上", value: "long" },
 ];
 
-const spreadOptions: { label: string; value: SpreadFilter }[] = [
+const anomalyOptions: { label: string; value: AnomalyFilter }[] = [
   { label: "1.0x以上", value: "1.0" },
   { label: "1.5x以上", value: "1.5" },
   { label: "2.0x以上", value: "2.0" },
   { label: "3.0x以上", value: "3.0" },
   { label: "5.0x以上", value: "5.0" },
+  { label: "カスタム", value: "custom" },
+];
+
+const spreadOptions: { label: string; value: SpreadFilter }[] = [
+  { label: "1倍以上", value: "1" },
+  { label: "2倍以上", value: "2" },
+  { label: "3倍以上", value: "3" },
+  { label: "5倍以上", value: "5" },
+  { label: "10倍以上", value: "10" },
   { label: "カスタム", value: "custom" },
 ];
 
@@ -257,7 +284,7 @@ export default function Home() {
   const [dateRange, setDateRange] = useState<DateRange>("");
   const [dateCustomDays, setDateCustomDays] = useState("");
   const [clientFilters, setClientFilters] = useState<ClientFilters>({
-    viewMin: "", viewCustom: "", spreadMin: "", spreadCustom: "", durations: [], subscriberRanges: [],
+    viewMin: "", viewCustom: "", anomalyMin: "", anomalyCustom: "", spreadMin: "", spreadCustom: "", durations: [], subscriberRanges: [],
   });
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "viewCount", dir: "desc" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -354,6 +381,7 @@ export default function Home() {
       let diff = 0;
       if (sort.key === "publishedAt") diff = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime();
       else if (sort.key === "viewCount") diff = a.viewCount - b.viewCount;
+      else if (sort.key === "anomalyRate") diff = a.anomalyRate - b.anomalyRate;
       else diff = a.spreadRate - b.spreadRate;
       return sort.dir === "desc" ? -diff : diff;
     });
@@ -401,8 +429,8 @@ export default function Home() {
             YouTubeを<span style={{ color: "#e63946" }}>高精度</span>に検索し、リサーチを効率化するツールです
           </h1>
           <p className="text-sm leading-relaxed max-w-2xl mx-auto" style={{ color: "#6b7280" }}>
-            キーワード・公開地域・公開日・動画時間・再生回数・拡散率を組み合わせて絞り込み。<br />
-            各チャンネルの実力を基準にした「<strong style={{ color: "#374151" }}>拡散率</strong>」で、そのチャンネルの中で異常に伸びた動画を発見できます。<br />
+            キーワード・公開地域・公開日・動画時間・再生回数・拡散率・異常値を組み合わせて絞り込み。<br />
+            「<strong style={{ color: "#374151" }}>拡散率</strong>」で新規に届いた企画を、「<strong style={{ color: "#374151" }}>異常値</strong>」でそのチャンネルの中で跳ねた動画を見つけられます。<br />
             韓国・アメリカのトレンドも、キーワードを自動翻訳して即検索。
           </p>
 
@@ -419,7 +447,7 @@ export default function Home() {
                   </svg>
                 ),
                 label: "APIキーを\n取得",
-                desc: "Google Cloud ConsoleでYouTube Data API v3を有効化してキーを発行する",
+                desc: "Google Cloud ConsoleでYouTube Data API v3を有効化してキーを発行する（GeminiやAI StudioのキーはNG）",
               },
               {
                 step: "2",
@@ -429,7 +457,7 @@ export default function Home() {
                   </svg>
                 ),
                 label: "検索条件を\n設定",
-                desc: "キーワード・地域・公開日・動画時間・再生回数・拡散率を設定して検索",
+                desc: "キーワード・地域・公開日・動画時間・再生回数・拡散率を設定して検索する",
               },
               {
                 step: "3",
@@ -439,7 +467,7 @@ export default function Home() {
                   </svg>
                 ),
                 label: "結果を\n絞り込む",
-                desc: "取得した動画を再生回数・拡散率でさらに絞り込み。チャンネル別ベースラインで公平に比較",
+                desc: "取得した動画を拡散率・異常値でさらに絞り込み。チャンネルの規模に関係なく比較できる",
               },
               {
                 step: "4",
@@ -478,8 +506,9 @@ export default function Home() {
 
           {/* Amber info */}
           <div className="lg-amber px-4 py-3 text-xs text-left mt-1" style={{ color: "#78350f" }}>
-            <strong>拡散率について：</strong>
-            各チャンネルの最新50本の再生回数の中央値をベースラインとし、その動画が何倍の再生数を得ているかを示します。チャンネルの規模に関係なく「本当に伸びた動画」を見つけるのに使えます。
+            <strong>2つの指標について：</strong>
+            <strong>拡散率</strong>＝再生回数÷登録者数。登録者以外の新規視聴者に届いたかを見る指標で、社内では<strong>5倍以上</strong>を企画の採用ラインにしています。
+            <strong>異常値</strong>＝再生回数÷そのチャンネルの最新50本の中央値。チャンネルの規模に関係なく、普段より跳ねた動画を見つけるのに使います。
           </div>
         </div>
 
@@ -487,13 +516,15 @@ export default function Home() {
         <div className="lg-panel p-6 space-y-4">
           <SectionLabel>API設定</SectionLabel>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" style={{ color: "#374151" }}>YouTube Data API キー</label>
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>
+              YouTube Data API v3 キー
+            </label>
             <div className="relative">
               <input
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="AIza..."
+                placeholder="AIzaSy..."
                 className="lg-input w-full px-3 py-2.5 pr-10 text-sm"
                 style={{ color: "#111827" }}
               />
@@ -506,16 +537,22 @@ export default function Home() {
                 {showKey ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-xs" style={{ color: "rgba(0,0,0,0.38)" }}>
-              <a
-                href="https://note.com/yuki_tech/n/na82ad826df1f"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-dashed underline-offset-2 hover:opacity-70 transition-opacity"
-              >
-                YouTube Data API v3の取得方法はこちら（参考サイト）
-              </a>
-            </p>
+            <div className="space-y-1 pt-0.5">
+              <p className="text-xs" style={{ color: "rgba(0,0,0,0.38)" }}>
+                取得先：
+                <a
+                  href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline decoration-dashed underline-offset-2 hover:opacity-70 transition-opacity"
+                >
+                  Google Cloud Console → YouTube Data API v3 を有効化 → 認証情報でキーを発行
+                </a>
+              </p>
+              <p className="text-xs px-3 py-2 rounded-xl" style={{ color: "#92400e", background: "rgba(253,224,71,0.10)", boxShadow: "inset 0 0 0 1px rgba(253,200,30,0.25)" }}>
+                ⚠️ <strong>Gemini / AI Studio / Vertex AI のキーは使えません。</strong>YouTube Data API v3 専用のキーが必要です。
+              </p>
+            </div>
           </div>
         </div>
 
@@ -685,15 +722,13 @@ export default function Home() {
             )}
           </div>
 
-          {/* Spread rate */}
+          {/* 拡散率（登録者比）＝社内共通の定義 */}
           <div className="space-y-2">
             <label className="text-sm font-medium" style={{ color: "#374151" }}>
               拡散率
-              {data && (
-                <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>
-                  各チャンネルの最新50本の中央値に対する倍率
-                </span>
-              )}
+              <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>
+                再生回数 ÷ 登録者数（企画の需要を見る。採用ラインは5倍）
+              </span>
             </label>
             <ChipGroup options={spreadOptions} value={clientFilters.spreadMin} onChange={(v) => updateFilter("spreadMin", v as SpreadFilter)} />
             {clientFilters.spreadMin === "custom" && (
@@ -704,6 +739,33 @@ export default function Home() {
                   step={0.1}
                   value={clientFilters.spreadCustom}
                   onChange={(e) => updateFilter("spreadCustom", e.target.value)}
+                  placeholder="例: 5"
+                  className="lg-input w-28 px-3 py-2 text-sm outline-none"
+                />
+                <span className="text-sm" style={{ color: "rgba(0,0,0,0.45)" }}>倍以上</span>
+              </div>
+            )}
+          </div>
+
+          {/* 異常値（チャンネル中央値比） */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium" style={{ color: "#374151" }}>
+              異常値
+              {data && (
+                <span className="ml-2 text-xs font-normal" style={{ color: "rgba(0,0,0,0.32)" }}>
+                  各チャンネルの最新50本の中央値に対する倍率
+                </span>
+              )}
+            </label>
+            <ChipGroup options={anomalyOptions} value={clientFilters.anomalyMin} onChange={(v) => updateFilter("anomalyMin", v as AnomalyFilter)} />
+            {clientFilters.anomalyMin === "custom" && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={clientFilters.anomalyCustom}
+                  onChange={(e) => updateFilter("anomalyCustom", e.target.value)}
                   placeholder="例: 2.5"
                   className="lg-input w-28 px-3 py-2 text-sm"
                   style={{ color: "#111827" }}
@@ -749,7 +811,7 @@ export default function Home() {
               <span>検索: <strong style={{ color: "#111827" }}>「{data.query}」</strong></span>
               <span>地域: <strong style={{ color: "#111827" }}>{regionOptions.find(r => r.code === data.region)?.label ?? data.region}</strong></span>
               <span>取得: <strong style={{ color: "#111827" }}>{data.totalFetched}件</strong></span>
-              <span className="text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>拡散率 = 各チャンネルの最新50本の中央値を基準</span>
+              <span className="text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>拡散率 = 再生回数÷登録者数 ／ 異常値 = 再生回数÷そのチャンネルの中央値</span>
             </div>
 
             {filtered.length > 0 ? (
@@ -791,7 +853,13 @@ export default function Home() {
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="再生回数" sortKey="viewCount" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>
+                          <SortHeader label="拡散率" sortKey="spreadRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
+                        </th>
                         <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>CH中央値</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>
+                          <SortHeader label="異常値" sortKey="anomalyRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
+                        </th>
                         <th className="px-4 py-3 text-right whitespace-nowrap">
                           <SortHeader label="拡散率" sortKey="spreadRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
@@ -853,15 +921,26 @@ export default function Home() {
                           </td>
                           <td className="px-4 py-3 text-right whitespace-nowrap text-xs" style={{ color: "#6b7280" }}>{fmtDate(v.publishedAt)}</td>
                           <td className="px-4 py-3 text-right font-semibold whitespace-nowrap" style={{ color: "#111827" }}>{fmt(v.viewCount)}</td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>{fmt(Math.round(v.channelBaseline))}</td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <span className={`inline-block px-2 py-0.5 text-xs font-semibold ${
-                              v.spreadRate >= 3 ? "lg-badge-red"
-                              : v.spreadRate >= 1.5 ? "lg-badge-orange"
+                            {/* 拡散率＝再生回数÷登録者数。社内の採用ラインは5倍以上 */}
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              v.spreadRate >= 5 ? "lg-badge-red"
+                              : v.spreadRate >= 3 ? "lg-badge-orange"
                               : v.spreadRate >= 1 ? "lg-badge-yellow"
                               : "lg-badge-gray"
                             }`}>
-                              {v.spreadRate.toFixed(2)}x
+                              {v.spreadRate.toFixed(2)}倍
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>{fmt(Math.round(v.channelBaseline))}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <span className={`inline-block px-2 py-0.5 text-xs font-semibold ${
+                              v.anomalyRate >= 3 ? "lg-badge-red"
+                              : v.anomalyRate >= 1.5 ? "lg-badge-orange"
+                              : v.anomalyRate >= 1 ? "lg-badge-yellow"
+                              : "lg-badge-gray"
+                            }`}>
+                              {v.anomalyRate.toFixed(2)}x
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
