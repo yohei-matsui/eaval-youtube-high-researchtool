@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, useCallback, useMemo } from "react";
-import { Eye, EyeOff, Search, Copy, Check, ChevronUp, ChevronDown, Download, Users, X } from "lucide-react";
+import { Eye, EyeOff, Search, Copy, Check, ChevronUp, ChevronDown, Download, Users, X, BookOpen } from "lucide-react";
 import { SearchVideoItem, SearchResponse } from "@/app/api/search/route";
 
 type MatchType = "partial" | "exact";
@@ -419,6 +420,10 @@ export default function Home() {
           <span className="text-[15px] font-bold" style={{ color: "#111827" }}>YouTube 高精度検索ツール</span>
           <span className="text-[11px]" style={{ color: "rgba(0,0,0,0.35)" }}>by 株式会社EAVAL</span>
         </div>
+        <Link href="/guide" className="lg-csv-btn ml-auto flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold" style={{ color: "#374151" }}>
+          <BookOpen className="h-3.5 w-3.5" style={{ color: "#e63946" }} />
+          できること・活用方法
+        </Link>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-5">
@@ -859,9 +864,6 @@ export default function Home() {
                         <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>CH中央値</th>
                         <th className="px-4 py-3 text-right whitespace-nowrap" style={{ color: "rgba(0,0,0,0.28)" }}>
                           <SortHeader label="異常値" sortKey="anomalyRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
-                        </th>
-                        <th className="px-4 py-3 text-right whitespace-nowrap">
-                          <SortHeader label="拡散率" sortKey="spreadRate" currentKey={sort.key} currentDir={sort.dir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 w-10"></th>
                       </tr>

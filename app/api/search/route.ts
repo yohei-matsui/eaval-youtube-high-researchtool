@@ -8,6 +8,9 @@ export interface SearchVideoItem {
   viewCount: number;
   publishedAt: string;
   thumbnailUrl: string;
+  /** 異常値 = 再生回数 ÷ そのチャンネルの最新50本の中央値。普段より跳ねた動画を見つける */
+  anomalyRate: number;
+  /** 拡散率 = 再生回数 ÷ 登録者数。登録者以外＝新規に届いたかを見る（社内共通の定義） */
   spreadRate: number;
   durationSeconds: number;
   channelBaseline: number;
@@ -225,7 +228,8 @@ export async function POST(request: NextRequest) {
       ...v,
       channelBaseline,
       subscriberCount,
-      spreadRate: channelBaseline > 0 ? v.viewCount / channelBaseline : 0,
+      anomalyRate: channelBaseline > 0 ? v.viewCount / channelBaseline : 0,
+      spreadRate: subscriberCount > 0 ? v.viewCount / subscriberCount : 0,
     };
   });
 
